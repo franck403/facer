@@ -9,8 +9,13 @@ const loadingElement = document.getElementById('loading');
 // Load the models
 async function loadModels() {
   try {
+    const MODEL_URL = 'https://cdn.jsdelivr.net/gh/justadudewhohacks/face-api.js@master/weights/';
+    await faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL);
+    await faceapi.nets.ageGenderNet.loadFromUri(MODEL_URL);
+
+    /*
     await faceapi.nets.tinyFaceDetector.loadFromUri('models');
-    await faceapi.nets.ageGenderNet.loadFromUri('models');
+    await faceapi.nets.ageGenderNet.loadFromUri('models');*/
     modelsLoaded = true;
     loadingElement.textContent = "Models loaded! Click 'Detect Ages' to start.";
     console.log('Models loaded');

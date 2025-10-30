@@ -2,7 +2,7 @@
 <html>
 
 <head>
-    <title>Face Detection • Age, Gender, Expression</title>
+    <title>Face Detection Age, Gender, Expression</title>
     <script src="https://cdn.jsdelivr.net/npm/eruda"></script>
     <script>eruda.init();</script>
     <script src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
@@ -97,8 +97,8 @@
 
         // Fluke filter variables
         let age30Start = null;
-        const AGE_THRESHOLD = 30;
-        const REQUIRED_DURATION = 500; // ms (2 seconds)
+        const AGE_THRESHOLD = 28;
+        const REQUIRED_DURATION = 100; // ms (0.5 second)
 
         const MODEL_URL = "https://cdn.jsdelivr.net/gh/justadudewhohacks/face-api.js@master/weights/";
 
@@ -132,11 +132,18 @@
 
         pipBtn.addEventListener("click", async () => {
             try {
+                // Capture canvas as a stream
+                const canvasStream = canvas.captureStream(30); // 30 FPS
                 if (document.pictureInPictureElement) {
                     await document.exitPictureInPicture();
                     pipBtn.textContent = "Enable PiP";
                 } else {
-                    await video.requestPictureInPicture();
+                    const track = canvasStream.getVideoTracks()[0];
+                    const pipVideo = document.createElement("video");
+                    pipVideo.srcObject = new MediaStream([track]);
+                    pipVideo.muted = true;
+                    await pipVideo.play();
+                    await pipVideo.requestPictureInPicture();
                     pipBtn.textContent = "PiP Enabled";
                 }
             } catch (err) {
@@ -174,7 +181,7 @@
 
             const resized = faceapi.resizeResults(detections, { width: canvas.width, height: canvas.height });
             let faceOver30Detected = false;
-
+            let highAge = 0
             resized.forEach(d => {
                 const age = Math.round(d.age);
                 const box = d.detection.box;
@@ -187,10 +194,10 @@
                 ctx.fillStyle = "#0f0";
                 ctx.font = "14px sans-serif";
                 ctx.fillText(`Age: ${age}`, box.x + 4, box.y - 6);
-
+                if (age > highAge) highAge = age
                 if (age > AGE_THRESHOLD) faceOver30Detected = true;
             });
-
+            document.title = highAge;
             const now = Date.now();
 
             if (faceOver30Detected) {

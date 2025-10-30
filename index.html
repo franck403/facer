@@ -1,76 +1,17 @@
 <!DOCTYPE html>
 <html>
-
 <head>
     <title>Face Detection Age, Gender, Expression</title>
+    <link rel="stylesheet" href="style.css">
+
     <script src="https://cdn.jsdelivr.net/npm/eruda"></script>
     <script>eruda.init();</script>
     <script src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            margin: 0;
-            background: #111;
-            color: #eee;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            height: 100vh;
-            overflow: hidden;
-        }
-
-        h1 {
-            margin: 12px 0;
-        }
-
-        #video-container {
-            position: relative;
-            width: 720px;
-            height: 560px;
-            background: #000;
-            border-radius: 8px;
-            overflow: hidden;
-        }
-
-        #video,
-        #overlay-canvas {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-        }
-
-        #controls {
-            margin-top: 10px;
-        }
-
-        button {
-            background-color: #4caf50;
-            border: none;
-            color: white;
-            padding: 10px 20px;
-            margin: 0 5px;
-            border-radius: 5px;
-            cursor: pointer;
-        }
-
-        button:hover {
-            background-color: #45a049;
-        }
-
-        #results {
-            margin-top: 10px;
-            background: rgba(255, 255, 255, 0.1);
-            padding: 10px 20px;
-            border-radius: 6px;
-            min-height: 40px;
-        }
-    </style>
 </head>
 
 <body>
     <h1>Real-Time Face Detection</h1>
+
     <div id="video-container">
         <video id="video" autoplay muted></video>
         <canvas id="overlay-canvas"></canvas>
@@ -83,144 +24,11 @@
 
     <div id="results">Loading models…</div>
 
-    <script>
-        const video = document.getElementById("video");
-        const canvas = document.getElementById("overlay-canvas");
-        const ctx = canvas.getContext("2d");
-        const resultsDiv = document.getElementById("results");
-        const toggleBtn = document.getElementById("toggle-camera");
-        const pipBtn = document.getElementById("enable-pip");
+    <div id="log-panel">
+        <div id="log-title">Logs</div>
+        <div id="log-output"></div>
+    </div>
 
-        let showCamera = true;
-        let popupWindow = null;
-        let popupOpened = false;
-
-        // Fluke filter variables
-        let age30Start = null;
-        const AGE_THRESHOLD = 28;
-        const REQUIRED_DURATION = 100; // ms (0.5 second)
-
-        const MODEL_URL = "https://cdn.jsdelivr.net/gh/justadudewhohacks/face-api.js@master/weights/";
-
-        async function loadModels() {
-            resultsDiv.textContent = "Loading models…";
-            await Promise.all([
-                faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
-                faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
-                faceapi.nets.faceExpressionNet.loadFromUri(MODEL_URL),
-                faceapi.nets.ageGenderNet.loadFromUri(MODEL_URL)
-            ]);
-            resultsDiv.textContent = "Models loaded.";
-            startCamera();
-        }
-
-        async function startCamera() {
-            const stream = await navigator.mediaDevices.getUserMedia({ video: {} });
-            video.srcObject = stream;
-            video.addEventListener("loadedmetadata", () => {
-                canvas.width = video.videoWidth;
-                canvas.height = video.videoHeight;
-                detectLoopRAF();
-            });
-        }
-
-        toggleBtn.addEventListener("click", () => {
-            showCamera = !showCamera;
-            video.style.opacity = showCamera ? "1" : "0";
-            toggleBtn.textContent = showCamera ? "Hide Camera" : "Show Camera";
-        });
-
-        pipBtn.addEventListener("click", async () => {
-            try {
-                // Capture canvas as a stream
-                const canvasStream = canvas.captureStream(30); // 30 FPS
-                if (document.pictureInPictureElement) {
-                    await document.exitPictureInPicture();
-                    pipBtn.textContent = "Enable PiP";
-                } else {
-                    const track = canvasStream.getVideoTracks()[0];
-                    const pipVideo = document.createElement("video");
-                    pipVideo.srcObject = new MediaStream([track]);
-                    pipVideo.muted = true;
-                    await pipVideo.play();
-                    await pipVideo.requestPictureInPicture();
-                    pipBtn.textContent = "PiP Enabled";
-                }
-            } catch (err) {
-                console.error("PiP failed:", err);
-            }
-        });
-
-        function openStudyoPopup() {
-            const width = screen.availWidth;
-            const height = screen.availHeight;
-
-            popupWindow = window.open(
-                "https://studyo.app/",
-                "FullscreenPopup",
-                `width=${width},height=${height},left=0,top=0,menubar=no,toolbar=no,location=no,status=no,resizable=no,scrollbars=no`
-            );
-
-            if (!popupWindow) {
-                alert("Popup blocked. Allow popups for this site.");
-                popupOpened = false;
-                return;
-            }
-        }
-
-        async function detectLoopRAF() {
-            const options = new faceapi.TinyFaceDetectorOptions({ inputSize: 320, scoreThreshold: 0.3 });
-
-            const detections = await faceapi
-                .detectAllFaces(video, options)
-                .withFaceLandmarks()
-                .withFaceExpressions()
-                .withAgeAndGender();
-
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-            const resized = faceapi.resizeResults(detections, { width: canvas.width, height: canvas.height });
-            let faceOver30Detected = false;
-            let highAge = 0
-            resized.forEach(d => {
-                const age = Math.round(d.age);
-                const box = d.detection.box;
-
-                // Draw overlays
-                faceapi.draw.drawDetections(canvas, [d]);
-                faceapi.draw.drawFaceLandmarks(canvas, [d]);
-                ctx.fillStyle = "rgba(0,0,0,0.5)";
-                ctx.fillRect(box.x, box.y - 20, box.width, 20);
-                ctx.fillStyle = "#0f0";
-                ctx.font = "14px sans-serif";
-                ctx.fillText(`Age: ${age}`, box.x + 4, box.y - 6);
-                if (age > highAge) highAge = age
-                if (age > AGE_THRESHOLD) faceOver30Detected = true;
-            });
-            document.title = highAge;
-            const now = Date.now();
-
-            if (faceOver30Detected) {
-                if (!age30Start) age30Start = now;
-                else if (now - age30Start >= REQUIRED_DURATION && !popupOpened) {
-                    popupOpened = true;
-                    openStudyoPopup();
-                }
-            } else {
-                age30Start = null; // reset if face disappears
-            }
-
-            // Reset popup state if user closed it
-            if (popupWindow && popupWindow.closed) {
-                popupWindow = null;
-                popupOpened = false;
-            }
-
-            requestAnimationFrame(detectLoopRAF);
-        }
-
-        loadModels();
-    </script>
+    <script src="script.js"></script>
 </body>
-
 </html>
